@@ -451,3 +451,39 @@ DB에 저장된 데이터를 프론트에 제공
 | `GET /api/games/:id/live`  | 볼카운트, 주자, 이닝 등 정상 반환 |
 | `GET /api/games/:id/relay` | 문자중계 이벤트 목록 정상 반환    |
 | `GET /api/games/:id/chat`  | 채팅 메시지 + 유저 정보 정상 반환 |
+
+---
+
+## 3/11/16:48 — 4단계 컨테이너화 완료
+
+### 발생한 에러 및 해결
+
+특별한 에러 없이 1회 빌드 성공
+
+### 완료된 작업
+
+- `Dockerfile` ✅ — API 서버 multi-stage 빌드 (node:24-alpine, builder → runner)
+- `Dockerfile.collector` ✅ — Collector multi-stage 빌드 (ENTRYPOINT 방식, `--date` 인자 수동 전달)
+- `.dockerignore` ✅ — `node_modules`, `.env`, `generated` 등 빌드 제외
+- `docker-compose.yml` 업데이트 ✅
+  - `postgres` healthcheck 추가 (`pg_isready` 기반)
+  - `api` 서비스 추가 (포트 3000, postgres healthcheck 의존)
+  - `collector` 서비스 추가 (profile: collector, 수동 실행 전용)
+  - 컨테이너 간 DB 연결: `DATABASE_URL` 호스트를 `localhost` → `postgres` (서비스명)로 변경
+
+### 컨테이너 동작 확인 ✅
+
+```
+✔ fullcount-db  — PostgreSQL 15 정상 기동
+✔ fullcount-api — 포트 3000 정상 리슨
+✔ GET /api/games — 컨테이너 환경에서 API 응답 정상
+```
+
+### 이미지 구성 정리
+
+| 이미지                  | Dockerfile             | 배포 VM |
+| ----------------------- | ---------------------- | ------- |
+| `fullcount-api`         | `Dockerfile`           | VM2     |
+| `fullcount-collector`   | `Dockerfile.collector` | VM3     |
+| `postgres:15` (공식)    | —                      | VM4     |
+
