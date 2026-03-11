@@ -149,3 +149,28 @@ npx prisma generate
 4. API 로직 구현
 
 ---
+
+## 3/11/10:39 — DB 스키마 설계 확정
+
+### 테이블 구성 (총 6개)
+
+| 테이블              | API/로직 구현 |
+| ------------------- | ------------- |
+| `team`              | 이재민        |
+| `game`              | 이재민        |
+| `game_event`        | 이재민        |
+| `message`           | 이재민        |
+| `user`              | 김승완        |
+| `verification_code` | 김승완        |
+
+### 설계 결정 사항
+
+- `InningScore` 별도 테이블 제거 → `game.home_inning_scores: Int[]` / `away_inning_scores: Int[]` 로 대체 (농구 ERD의 periods 방식 참고)
+- `Lineup` 별도 테이블 제거 → `game.home_lineup: Json` / `away_lineup: Json` 으로 대체
+- `game_event` 는 별도 테이블 유지 (실시간 문자중계 핵심, 경기당 다수 레코드)
+
+### 다음 단계
+
+- `prisma/schema.prisma` 작성 및 마이그레이션
+
+---
