@@ -68,8 +68,6 @@ model Game {
   // 부가 정보
   attendance  String?
   probableMvp String?
-  homeWinProb Int     @default(50)
-  awayWinProb Int     @default(50)
 
   // 선발 라인업 JSON 배열
   homeLineup Json?
