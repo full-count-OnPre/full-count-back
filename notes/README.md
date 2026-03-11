@@ -11,6 +11,7 @@
 - refresh 토큰에서 `jti` 누락 시 즉시 401 반환하도록 방어 로직 추가함
 - `GET /api/games`, `GET /api/games/:gameId`에 Redis 캐시 미들웨어 적용(10초)
 - Prisma client generate 실행함
+- 머지 충돌 해결: `prisma/seed.ts` 통합, `src/routes/games.js` 통합(캐시 + 추가 라우트)
 
 ## 통합 후 변경 파일
 - `src/app.js`
