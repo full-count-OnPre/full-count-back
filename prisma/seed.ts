@@ -83,8 +83,6 @@ async function main() {
       lastPitch: "슬라이더 143km/h",
 
       attendance: "56,000",
-      homeWinProb: 62,
-      awayWinProb: 38,
 
       homeLineup: [
         { order: 1, name: "Mookie Betts", position: "RF" },

@@ -4,8 +4,9 @@
   "description": "full-count-bacekend repository",
   "main": "src/app.js",
   "scripts": {
-    "dev": "nodemon src/app.js",
-    "start": "node src/app.js"
+    "dev": "nodemon --exec tsx src/app.js",
+    "start": "tsx src/app.js",
+    "collect": "tsx src/collector/index.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
