@@ -278,9 +278,26 @@ npx prisma generate
 - `npx prisma db seed` 실행
 - pgAdmin4 → `localhost:5432` 접속하여 데이터 시각 확인
 
-### 3단계 — REST API 구현
+### 3단계 — MLB API Collector + REST API 구현
 
-`src/services/gamesService.js`, `src/controllers/gamesController.js`, `src/routes/games.js` 순서로 구현
+#### 3-1. MLB API Collector (`src/collector/`)
+
+MLB Stats API에서 실제 과거 경기 데이터를 수집하여 DB에 저장하는 모듈
+
+- `src/collector/mlbClient.js` — MLB Stats API 호출 래퍼
+- `src/collector/normalizer.js` — MLB API 응답 → 우리 DB 스키마로 변환
+- `src/collector/index.js` — 수집 실행 진입점
+
+사용할 MLB Stats API 엔드포인트:
+
+- `GET /api/v1/schedule` — 경기 목록 (gamePk, 팀, 날짜, 상태)
+- `GET /api/v1/game/{gamePk}/linescore` — 실시간 경기 상황
+- `GET /api/v1/game/{gamePk}/boxscore` — 스코어, 라인업, 타격/수비 통계
+- `GET /api/v1/game/{gamePk}/playByPlay` — 문자중계 이벤트
+
+#### 3-2. REST API (`src/services/`, `src/controllers/`, `src/routes/`)
+
+DB에 저장된 데이터를 프론트에 제공
 
 | 엔드포인트                     | 설명                                    |
 | ------------------------------ | --------------------------------------- |
@@ -289,6 +306,10 @@ npx prisma generate
 | `GET /api/games/:gameId/live`  | 실시간 경기 상황 (볼카운트, 주자, 이닝) |
 | `GET /api/games/:gameId/relay` | 문자중계 이벤트 목록                    |
 | `GET /api/games/:gameId/chat`  | 채팅 메시지 목록 (팀원 B 연동용)        |
+
+#### 3-3. Redis 인터페이스 (`src/cache/redis.js`)
+
+승완님 연동 대비 틀만 작성 — 현재는 항상 `null` 반환, DB fallback으로 동작
 
 ### 4단계 — 컨테이너화
 
@@ -377,3 +398,56 @@ npx prisma generate
 - `@prisma/adapter-pg` (dependencies) — Prisma v7 Driver Adapter
 
 ---
+
+## 3/11/16:22 — 3단계 MLB API Collector + REST API 구현 완료
+
+### 발생한 에러 및 해결
+
+#### 1. Prisma v7 generated client import 불가 (Cannot find module)
+
+- `src/services/gamesService.js`에서 `require('../../generated/prisma')` 실패
+- Prisma v7 `prisma-client` generator는 TypeScript 파일만 생성, `index.js` 없음
+- **해결:** `src/lib/prisma.js` 공유 모듈 생성, `require('../../generated/prisma/client.ts')` 사용 (tsx 런타임에서 .ts require 지원)
+
+#### 2. 앱 실행 런타임을 tsx로 전환
+
+- 기존 `node src/app.js` 방식으로는 TypeScript generated client 로드 불가
+- **해결:** `package.json` scripts를 `tsx src/app.js` / `nodemon --exec tsx src/app.js`로 변경
+
+#### 3. `homeWinProb` / `awayWinProb` 컬럼 제거 후 클라이언트 미재생성
+
+- 스키마에서 두 필드 제거 + migrate 후 서버 재시작 시 `The column does not exist` 에러
+- **해결:** `npx prisma generate` 재실행으로 generated client 동기화
+
+#### 4. `findUnique` 미동작 → `findFirst`로 변경
+
+- `GET /api/games/:id`에서 `prisma.game.findUnique()` 가 항상 null 반환
+- Prisma v7 Driver Adapter 환경에서 `findUnique`의 동작 이상으로 추정
+- **해결:** `findFirst({ where: { id: gameId } })`로 교체 → 정상 동작
+
+#### 5. seed 중복 실행으로 이벤트/메시지 데이터 중복
+
+- migrate dev 전후로 seed를 여러 번 실행 → GameEvent, Message 중복 저장
+- Game/Team/User는 upsert라 중복 없으나, GameEvent·Message는 create라 중복 발생
+- 지금은 무시 (MLB API 실데이터로 교체 시 자동 해소)
+
+### 완료된 작업
+
+- `src/lib/prisma.js` ✅ — 공유 Prisma 클라이언트 (Driver Adapter 포함)
+- `src/cache/redis.js` ✅ — Redis 인터페이스 틀 (팀원 B 연동 대비, 현재 null 반환)
+- `src/collector/mlbClient.js` ✅ — MLB Stats API 호출 래퍼
+- `src/collector/normalizer.js` ✅ — MLB API 응답 → DB 스키마 변환
+- `src/collector/index.js` ✅ — 날짜 기반 경기 수집 및 DB 저장 실행 스크립트
+- `src/services/gamesService.js` ✅ — 5개 엔드포인트 서비스 로직
+- `src/controllers/gamesController.js` ✅ — 5개 엔드포인트 컨트롤러
+- `src/routes/games.js` ✅ — 라우터 등록
+
+### API 동작 확인 ✅
+
+| 엔드포인트                 | 결과                              |
+| -------------------------- | --------------------------------- |
+| `GET /api/games`           | 경기 목록 JSON 정상 반환          |
+| `GET /api/games/:id`       | 경기 상세 + 팀 정보 정상 반환     |
+| `GET /api/games/:id/live`  | 볼카운트, 주자, 이닝 등 정상 반환 |
+| `GET /api/games/:id/relay` | 문자중계 이벤트 목록 정상 반환    |
+| `GET /api/games/:id/chat`  | 채팅 메시지 + 유저 정보 정상 반환 |
