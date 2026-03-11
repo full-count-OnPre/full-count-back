@@ -215,3 +215,165 @@ npx prisma generate
 - pgAdmin4 → `localhost:5432` / user: `user` / pw: `password` / db: `fullcount`
 
 ---
+
+## 3/11/12:05 — 환경 의존성 이슈 해결
+
+### 발생한 문제
+
+#### 1. Prisma v6 vs v7 충돌
+
+- `prisma.config.ts`는 v7 방식 (datasource url을 config에서 관리)
+- 설치된 CLI는 v6.19.2 → `schema.prisma`에 url 필수 → `validate` 실패
+- **해결:** Prisma v7으로 업그레이드
+
+#### 2. Node.js 버전 부족
+
+- Prisma v7 요구: `Node.js v20.19+ / v22.12+ / v24+`
+- 설치된 버전: `v20.17.0` → 업그레이드 필요
+- **해결:** Node.js `v24.14.0` 으로 업그레이드 (공식 사이트에서 설치)
+
+#### 3. Docker Desktop 미실행
+
+- `docker-compose up -d` 실패 → Docker Engine에 연결 불가
+- **해결:** Docker Desktop 실행
+
+### 업그레이드 결과
+
+| 항목           | 이전     | 현재     |
+| -------------- | -------- | -------- |
+| Node.js        | v20.17.0 | v24.14.0 |
+| Prisma CLI     | ^6.19.2  | ^7.4.2   |
+| @prisma/client | ^6.19.2  | ^7.4.2   |
+
+### 현재 상태
+
+- `npx prisma validate` → 통과
+- Docker Desktop 실행 완료
+- 다음 단계: `docker-compose up -d` → migrate → generate
+
+---
+
+## 3/11/12:22 — 다음 진행 계획
+
+### 1단계 — DB 세팅 (즉시 진행)
+
+```bash
+docker-compose up -d
+npx prisma migrate dev --name init
+npx prisma generate
+```
+
+- `docker-compose up -d`: PostgreSQL 컨테이너 실행 (포트 5432)
+- `migrate dev`: `prisma/migrations/` 생성 + DB에 테이블 적용
+- `generate`: `generated/prisma/` 에 Prisma 클라이언트 코드 생성
+
+### 2단계 — 더미데이터 삽입
+
+- `prisma/seed.js` 작성
+  - Team 2개 (Yankees, Dodgers)
+  - Game 1개 (진행중 상태, 7회 상황)
+  - GameEvent 여러 개 (문자중계 이벤트)
+  - User 1개 (테스트용)
+- `package.json` prisma seed 스크립트 추가
+- `npx prisma db seed` 실행
+- pgAdmin4 → `localhost:5432` 접속하여 데이터 시각 확인
+
+### 3단계 — REST API 구현
+
+`src/services/gamesService.js`, `src/controllers/gamesController.js`, `src/routes/games.js` 순서로 구현
+
+| 엔드포인트                     | 설명                                    |
+| ------------------------------ | --------------------------------------- |
+| `GET /api/games`               | 경기 목록 (날짜, 상태 필터)             |
+| `GET /api/games/:gameId`       | 경기 상세 (팀, 스코어 등)               |
+| `GET /api/games/:gameId/live`  | 실시간 경기 상황 (볼카운트, 주자, 이닝) |
+| `GET /api/games/:gameId/relay` | 문자중계 이벤트 목록                    |
+| `GET /api/games/:gameId/chat`  | 채팅 메시지 목록 (팀원 B 연동용)        |
+
+### 4단계 — 컨테이너화
+
+- `Dockerfile` 작성 (multi-stage build: builder → production)
+- `docker-compose.yml`에 `app` 서비스 추가 (postgres 의존성 포함)
+- 전체 스택 `docker-compose up` 으로 통합 테스트
+
+---
+
+## 3/11/12:38 — 1단계 DB 세팅 완료
+
+### 발생한 에러 및 해결
+
+#### 1. Prisma v6 vs v7 충돌
+
+- `prisma.config.ts`는 v7 방식 (datasource url을 config에서 관리)
+- 설치된 CLI는 v6 → `schema.prisma`에 url 없다며 validate 실패
+- **해결:** Prisma v7.4.2로 업그레이드 (`npm install prisma@^7.4.2 @prisma/client@^7.4.2`)
+
+#### 2. Node.js 버전 부족
+
+- Prisma v7 요구: Node.js v20.19+ / v22.12+ / v24+
+- 설치 버전: v20.17.0 → 조건 미충족
+- **해결:** 공식 사이트에서 Node.js v24.14.0 설치 (기존 버전 덮어쓰기)
+
+#### 3. dotenv import 방식 문제 (P1000 1차)
+
+- `import "dotenv/config"` 방식이 Prisma TS 로더 환경에서 미작동
+- **해결:** `import { config } from "dotenv"; config();` 방식으로 변경
+
+#### 4. .env 값 따옴표 포함 문제 (P1000 2차)
+
+- dotenv v17에서 .env의 `DATABASE_URL="postgresql://..."` 따옴표가 URL에 그대로 포함됨
+- **해결:** .env에서 따옴표 제거 → `DATABASE_URL=postgresql://user:password@localhost:5432/fullcount`
+
+#### 5. PostgreSQL 인증 방식 불일치 (P1000 3차)
+
+- PostgreSQL 15 기본 인증은 scram-sha-256이나 pg_hba.conf 설정과 충돌
+- **해결:** `docker-compose.yml`에 `POSTGRES_HOST_AUTH_METHOD: trust` 추가
+
+#### 6. 로컬 PostgreSQL 서비스 포트 충돌 (P1000 근본 원인)
+
+- 로컬에 PostgreSQL 설치 시 default 포트 5432로 설정 → 서비스 자동 실행 중
+- `netstat -ano | grep ":5432"` 로 두 PID (23692, 27008) 확인
+- Docker 컨테이너와 포트 충돌 → DB 연결 불가
+- **해결:** `services.msc`에서 로컬 PostgreSQL 서비스 수동 중지
+
+### 완료된 작업
+
+- `docker-compose up -d` ✅ — PostgreSQL 15 컨테이너 (`fullcount-db`) 실행
+- `npx prisma migrate dev --name init` ✅ — `prisma/migrations/20260311033720_init/migration.sql` 생성 및 DB 테이블 적용
+- `npx prisma generate` ✅ — `generated/prisma/` 에 Prisma Client 코드 생성
+
+---
+
+## 3/11/14:29 — 2단계 더미데이터 삽입 완료
+
+### 발생한 에러 및 해결
+
+#### 1. seed 설정 위치 변경 (Prisma v7)
+
+- `package.json`의 `"prisma": { "seed": "..." }` 방식은 v6까지만 유효
+- Prisma v7에서는 `prisma.config.ts`의 `migrations.seed` 필드에서 관리
+- **해결:** `prisma.config.ts`에 `seed: "node prisma/seed.js"` 추가
+
+#### 2. CommonJS seed.js → TypeScript 전환 필요
+
+- Prisma v7의 `prisma-client` generator는 TypeScript 파일(`generated/prisma/client.ts`)만 생성
+- CommonJS `require("../generated/prisma")`로는 모듈 불가 (`index.js` 없음)
+- **해결:** `tsx` 설치 후 `seed.js` → `seed.ts` 전환, seed 커맨드를 `npx tsx prisma/seed.ts`로 변경
+
+#### 3. PrismaClient 생성자 필수 인자 누락
+
+- Prisma v7 새 generator는 Driver Adapter를 필수로 요구 (`new PrismaClient()` 불가)
+- **해결:** `@prisma/adapter-pg` 설치 후 `new PrismaPg({ connectionString })` 어댑터 주입
+
+### 완료된 작업
+
+- `prisma/seed.ts` 작성 ✅ — Team 2개, Game 1개, GameEvent 6개, Message 5개, User 1개
+- `npx prisma db seed` 성공 ✅ — DB에 더미데이터 삽입 확인
+- pgAdmin4로 `fullcount` DB 데이터 시각 확인 ✅
+
+### 추가 설치된 패키지
+
+- `tsx` (devDependencies) — TypeScript seed 파일 실행용
+- `@prisma/adapter-pg` (dependencies) — Prisma v7 Driver Adapter
+
+---
