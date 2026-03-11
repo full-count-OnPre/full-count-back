@@ -1,4 +1,4 @@
-import { config } from "dotenv";
+﻿import { config } from "dotenv";
 import { PrismaClient } from "../generated/prisma/client.ts";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -42,7 +42,7 @@ async function main() {
     create: {
       nickname: "야구팬",
       email: "test@fullcount.com",
-      password: "hashed_password_placeholder",
+      passwordHash: "hashed_password_placeholder",
     },
   });
 

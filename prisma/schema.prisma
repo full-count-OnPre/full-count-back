@@ -129,9 +129,10 @@ model Message {
 // ─────────────────────────────────────────
 model User {
   id        String    @id @default(cuid())
-  nickname  String
+  nickname  String?
   email     String    @unique
-  password  String
+  passwordHash String
+  role      String    @default("user")
   isAdmin   Boolean   @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
