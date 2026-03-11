@@ -75,6 +75,9 @@ router.post("/refresh", async (req, res) => {
 
   try {
     const payload = verifyRefreshToken(refreshToken);
+    if (!payload.jti) {
+      return res.status(401).json({ error: "invalid_refresh" });
+    }
     const valid = await isRefreshValid(payload.jti);
     if (!valid) {
       return res.status(401).json({ error: "invalid_refresh" });
