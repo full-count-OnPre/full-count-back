@@ -10,6 +10,7 @@
 - `prisma/seed.ts`의 `password`를 `passwordHash`로 변경함
 - refresh 토큰에서 `jti` 누락 시 즉시 401 반환하도록 방어 로직 추가함
 - `GET /api/games`, `GET /api/games/:gameId`에 Redis 캐시 미들웨어 적용(10초)
+- Prisma client generate 실행함
 
 ## 통합 후 변경 파일
 - `src/app.js`
