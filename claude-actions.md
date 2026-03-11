@@ -174,3 +174,44 @@ npx prisma generate
 - `prisma/schema.prisma` 작성 및 마이그레이션
 
 ---
+
+## 3/11/11:42 — DB 세팅 및 API 구현 계획
+
+### 진행 순서
+
+#### 1단계 — DB 세팅
+
+1. Docker PostgreSQL 컨테이너 실행: `docker-compose up -d`
+2. 테이블 생성: `npx prisma migrate dev --name init`
+3. Prisma 클라이언트 생성: `npx prisma generate`
+
+#### 2단계 — 더미데이터 삽입
+
+4. `prisma/seed.js` 작성 (Yankees vs Dodgers 경기 + GameEvent 더미데이터)
+5. `package.json`에 seed 스크립트 추가
+6. `npx prisma db seed` 실행
+7. pgAdmin4로 데이터 시각 확인
+
+#### 3단계 — REST API 구현
+
+| 엔드포인트                     | 설명                                    |
+| ------------------------------ | --------------------------------------- |
+| `GET /api/games`               | 경기 목록 (날짜, 상태 필터)             |
+| `GET /api/games/:gameId`       | 경기 상세 (팀, 스코어 등)               |
+| `GET /api/games/:gameId/live`  | 실시간 경기 상황 (볼카운트, 주자, 이닝) |
+| `GET /api/games/:gameId/relay` | 문자중계 이벤트 목록                    |
+| `GET /api/games/:gameId/chat`  | 채팅 메시지 목록 (팀원 B 연동용)        |
+
+#### 4단계 — 컨테이너화
+
+8. `Dockerfile` 작성 (multi-stage build)
+9. `docker-compose.yml`에 app 서비스 추가
+10. 전체 스택 docker-compose로 통합 테스트
+
+### 로컬 DB 환경
+
+- Docker PostgreSQL (포트 5432) 사용
+- 로컬 설치 PostgreSQL 서비스는 중지 상태 유지
+- pgAdmin4 → `localhost:5432` / user: `user` / pw: `password` / db: `fullcount`
+
+---
