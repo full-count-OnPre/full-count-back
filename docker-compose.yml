@@ -13,6 +13,39 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d fullcount"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fullcount-api
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgresql://user:password@postgres:5432/fullcount
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # 수동 실행용: docker-compose --profile collector run collector --date 2024-10-30
+  collector:
+    build:
+      context: .
+      dockerfile: Dockerfile.collector
+    container_name: fullcount-collector
+    profiles: ["collector"]
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/fullcount
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:
