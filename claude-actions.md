@@ -122,9 +122,10 @@ npx prisma generate
 
 ---
 
-## 3/11/10:20 — 초기 세팅 완료
+## 3/11/10:08 — 초기 세팅 완료
 
 ### 생성된 파일 목록
+
 - `src/app.js` — Express 앱 엔트리포인트
 - `src/routes/games.js` — 경기 라우터
 - `src/controllers/gamesController.js` — 컨트롤러
@@ -136,10 +137,12 @@ npx prisma generate
 - `docker-compose.yml` — 로컬 개발용 PostgreSQL
 
 ### 완료된 설정
+
 - `package.json` scripts: `dev` (nodemon), `start` (node)
 - `.env` DATABASE_URL을 표준 PostgreSQL URL로 설정
 
 ### 다음 단계
+
 1. `docker-compose up -d` 로 PostgreSQL 실행
 2. `prisma/schema.prisma` 에 Game 모델 정의
 3. `npx prisma migrate dev --name init` 으로 마이그레이션 적용
