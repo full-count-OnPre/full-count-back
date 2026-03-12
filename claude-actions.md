@@ -481,11 +481,11 @@ DB에 저장된 데이터를 프론트에 제공
 
 ### 이미지 구성 정리
 
-| 이미지                  | Dockerfile             | 배포 VM |
-| ----------------------- | ---------------------- | ------- |
-| `fullcount-api`         | `Dockerfile`           | VM2     |
-| `fullcount-collector`   | `Dockerfile.collector` | VM3     |
-| `postgres:15` (공식)    | —                      | VM4     |
+| 이미지                | Dockerfile             | 배포 VM |
+| --------------------- | ---------------------- | ------- |
+| `fullcount-api`       | `Dockerfile`           | VM2     |
+| `fullcount-collector` | `Dockerfile.collector` | VM3     |
+| `postgres:15` (공식)  | —                      | VM4     |
 
 ---
 
@@ -494,14 +494,17 @@ DB에 저장된 데이터를 프론트에 제공
 ### 발생한 에러 및 해결
 
 #### 1. `dev/backend` 브랜치 GitHub 자동 merge 불가
+
 - 승완님 `dev/backend`가 우리 `feat/backend-setting` merge 이전의 main을 base로 생성됨
 - **해결:** `dev/backend` 브랜치에서 `git pull origin main` → merge commit 생성 → `git push origin dev/backend`
 
 #### 2. seed.ts — `homeWinProb` / `awayWinProb` 잔존
+
 - 스키마에서 제거한 필드가 seed.ts에 남아 있어 seed 실패
 - **해결:** seed.ts에서 해당 두 필드 제거
 
 #### 3. Prisma 클라이언트 필드 불일치 (`password` vs `passwordHash`)
+
 - 승완님이 `User.password` → `User.passwordHash`로 변경했으나 Prisma 클라이언트가 구버전 캐싱
 - seed 실행 시 `Argument 'password' is missing` 에러
 - **해결 순서:**
@@ -523,4 +526,31 @@ npm install
 npx prisma migrate dev
 npx prisma generate
 npx prisma db seed   # 데이터 초기화 필요할 때만
+```
+
+---
+
+## 3/12/09:47 - 5단계 MLB API 실데이터 수집
+
+### 목표
+
+더미데이터 대신 실제 MLB Stats API 데이터를 DB에 저장하여 프론트에 실데이터 제공
+
+### 수집 대상
+
+- **기간:** 2025 포스트시즌 (`2025-10-01` ~ `2025-10-29`)
+- **예상 경기 수:** 30~47경기
+- **예상 소요 시간:** 5~10분
+
+### 할 작업
+
+- `src/collector/index.js`에 `--from` / `--to` 날짜 범위 옵션 추가
+- 범위 수집 실행 및 DB 저장 확인
+- pgAdmin4에서 실데이터 적재 확인
+- REST API 응답이 실데이터로 바뀌는지 확인
+
+### 실행 예정 명령어
+
+```bash
+npx tsx src/collector/index.js --from 2025-10-01 --to 2025-10-29
 ```
