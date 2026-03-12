@@ -39,7 +39,7 @@ async function collectGame(scheduledGame) {
 
   const gameData = {
     gamePk: gamePkStr,
-    season: scheduledGame.season ?? new Date(scheduledGame.gameDate).getFullYear(),
+    season: Number(scheduledGame.season ?? new Date(scheduledGame.gameDate).getFullYear()),
     startTime: new Date(scheduledGame.gameDate),
     venue: scheduledGame.venue?.name ?? '',
     status: normalizeStatus(scheduledGame.status?.codedGameState),
@@ -96,19 +96,44 @@ async function collectByDate(date) {
   }
 }
 
-// CLI 실행: node src/collector/index.js --date 2024-10-30
+// 날짜 범위 생성 (from ~ to, 각 날짜 문자열 배열)
+function dateRange(from, to) {
+  const dates = [];
+  const cur = new Date(from);
+  const end = new Date(to);
+  while (cur <= end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return dates;
+}
+
+// CLI 실행
+// --date YYYY-MM-DD          : 하루치
+// --from YYYY-MM-DD --to YYYY-MM-DD : 범위
 async function main() {
   const args = process.argv.slice(2);
   const dateIdx = args.indexOf('--date');
-  const date = dateIdx !== -1 ? args[dateIdx + 1] : null;
+  const fromIdx = args.indexOf('--from');
+  const toIdx   = args.indexOf('--to');
 
-  if (!date) {
-    console.error('사용법: tsx src/collector/index.js --date YYYY-MM-DD');
+  let dates = [];
+
+  if (dateIdx !== -1) {
+    dates = [args[dateIdx + 1]];
+  } else if (fromIdx !== -1 && toIdx !== -1) {
+    dates = dateRange(args[fromIdx + 1], args[toIdx + 1]);
+  } else {
+    console.error('사용법:');
+    console.error('  tsx src/collector/index.js --date YYYY-MM-DD');
+    console.error('  tsx src/collector/index.js --from YYYY-MM-DD --to YYYY-MM-DD');
     process.exit(1);
   }
 
   try {
-    await collectByDate(date);
+    for (const date of dates) {
+      await collectByDate(date);
+    }
     console.log('\n수집 완료');
   } catch (e) {
     console.error('수집 실패:', e.message);

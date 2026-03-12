@@ -1,5 +1,5 @@
 const express = require("express");
-const prisma = require("../db");
+const { prisma } = require("../lib/prisma");
 const {
   ACCESS_TTL,
   REFRESH_TTL,
