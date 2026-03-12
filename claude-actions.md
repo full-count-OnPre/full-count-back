@@ -487,3 +487,40 @@ DB에 저장된 데이터를 프론트에 제공
 | `fullcount-collector`   | `Dockerfile.collector` | VM3     |
 | `postgres:15` (공식)    | —                      | VM4     |
 
+---
+
+## 3/12/09:32 — 팀원 브랜치 통합 중 스키마 충돌 해결
+
+### 발생한 에러 및 해결
+
+#### 1. `dev/backend` 브랜치 GitHub 자동 merge 불가
+- 승완님 `dev/backend`가 우리 `feat/backend-setting` merge 이전의 main을 base로 생성됨
+- **해결:** `dev/backend` 브랜치에서 `git pull origin main` → merge commit 생성 → `git push origin dev/backend`
+
+#### 2. seed.ts — `homeWinProb` / `awayWinProb` 잔존
+- 스키마에서 제거한 필드가 seed.ts에 남아 있어 seed 실패
+- **해결:** seed.ts에서 해당 두 필드 제거
+
+#### 3. Prisma 클라이언트 필드 불일치 (`password` vs `passwordHash`)
+- 승완님이 `User.password` → `User.passwordHash`로 변경했으나 Prisma 클라이언트가 구버전 캐싱
+- seed 실행 시 `Argument 'password' is missing` 에러
+- **해결 순서:**
+  1. `npx prisma migrate reset` — DB 초기화 + 기존 마이그레이션 재적용
+  2. `npx prisma migrate dev --name add-auth-fields` — 새 스키마 마이그레이션
+  3. `npx prisma generate` — 클라이언트 재생성
+  4. `npx prisma db seed` — 정상 완료
+
+### 완료된 작업
+
+- `dev/backend` ↔ `main` 브랜치 통합 완료 ✅
+- 승완님 Auth 스키마(`passwordHash`, `role`, `isAdmin`, `deletedAt`, `VerificationCode`) 마이그레이션 적용 ✅
+- seed 정상 동작 확인 ✅
+
+### 팀 공유 — 스키마 변경 후 필수 명령어
+
+```bash
+npm install
+npx prisma migrate dev
+npx prisma generate
+npx prisma db seed   # 데이터 초기화 필요할 때만
+```
