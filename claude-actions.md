@@ -554,3 +554,79 @@ npx prisma db seed   # 데이터 초기화 필요할 때만
 ```bash
 npx tsx src/collector/index.js --from 2025-10-01 --to 2025-10-29
 ```
+
+---
+
+## 3/12/11:10 — MLB API 실데이터 수집 완료 + 코드 정리
+
+### 역할 변경
+
+- **백엔드 전담: 이재민 단독** (JWT 인증, Redis 캐싱 포함)
+- 승완님 코드(`src/auth/`, `src/cache.js`, `src/redis.js`) 활용 + 필요시 수정
+
+### 발생한 에러 및 해결
+
+#### 1. `season` 타입 불일치
+
+- MLB API의 `season` 필드가 문자열(`"2025"`)로 반환됨 → DB 스키마는 `Int`
+- **해결:** `Number()` 변환 추가
+
+#### 2. `src/routes/games.js` 중복 라우트
+
+- 승완님이 `cache` 미들웨어 추가하면서 라우트 2벌 등록됨
+- **해결:** 중복 제거, cache 미들웨어 포함 버전으로 통일
+
+#### 3. Prisma 인스턴스 이중화
+
+- 우리 `src/lib/prisma.js` (Driver Adapter 포함) + 승완님 `src/db.js` (기본) 공존
+- **해결:** `src/auth/routes.js`가 `../lib/prisma` 사용하도록 변경
+
+#### 4. JWT 시크릿 환경변수 누락
+
+- `src/auth/tokens.js`가 `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` 요구 → `.env`에 없음
+- **해결:** `.env`에 추가
+
+#### 5. Redis ECONNREFUSED
+
+- 로컬에 Redis 컨테이너 미실행
+- **현재:** `src/cache.js`가 Redis 에러 시 fallback 처리 → API 정상 동작
+- **할 것:** `docker-compose.yml`에 redis 서비스 추가
+
+### 완료된 작업
+
+- `--from` / `--to` 범위 수집 옵션 추가 ✅
+- 2025 포스트시즌 데이터 수집 완료 ✅
+- 중복 라우트 제거 ✅
+- Prisma 인스턴스 `src/lib/prisma.js`로 통일 ✅
+- `.env` JWT + Redis 환경변수 추가 ✅
+
+---
+
+## 3/12/11:30 — 불필요 파일 정리
+
+### 삭제된 파일
+
+| 파일                 | 이유                                               |
+| -------------------- | -------------------------------------------------- |
+| `src/db.js`          | `src/lib/prisma.js`로 통일, 아무데서도 import 안됨 |
+| `src/auth/middle.js` | `requireAuth` 미들웨어 아무데서도 import 안됨      |
+| `src/cache/redis.js` | stub 파일 (항상 null 반환), `src/redis.js`로 대체  |
+
+### 수정된 파일
+
+- `src/services/gamesService.js` — `../cache/redis.js` import 제거, `getLiveCache`/`setLiveCache` 호출 제거
+- `docker-compose.yml` — redis 서비스 추가, api 서비스에 Redis/JWT 환경변수 추가
+
+---
+
+## 앞으로 할 것 (오늘 3시간 내 완료 목표)
+
+| 순서 | 작업                                         | 파일                           | 비고                             |
+| ---- | -------------------------------------------- | ------------------------------ | -------------------------------- |
+| 1    | `.env.example` 업데이트                      | `.env.example`                 | JWT, Redis 환경변수 반영         |
+| 2    | JWT 인증 미들웨어 작성                       | `src/auth/middleware.js`       | `requireAuth` — Bearer 토큰 검증 |
+| 3    | `POST /api/games/:gameId/chat` 추가          | `src/routes/games.js` 등       | JWT 미들웨어 적용, 메시지 저장   |
+| 4    | Live 엔드포인트 Redis 캐싱 연동              | `src/services/gamesService.js` | `src/redis.js` 직접 사용         |
+| 5    | `docker-compose up --build` 전체 통합 테스트 | —                              | postgres + redis + api 동시 기동 |
+| 6    | Docker Hub push                              | —                              | K8s 배포 전 이미지 업로드        |
+| 7    | K8s Deployment YAML 작성                     | `k8s/`                         | VM2 api, VM3 redis, VM4 postgres |
