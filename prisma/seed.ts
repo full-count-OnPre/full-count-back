@@ -42,7 +42,7 @@ async function main() {
     create: {
       nickname: "야구팬",
       email: "test@fullcount.com",
-      password: "hashed_password_placeholder",
+      passwordHash: "hashed_password_placeholder",
     },
   });
 
