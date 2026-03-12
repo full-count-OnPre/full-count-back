@@ -1,5 +1,16 @@
 const gamesService = require('../services/gamesService');
 
+const postGameChat = async (req, res) => {
+  try {
+    const { message } = req.body || {};
+    if (!message) return res.status(400).json({ error: 'missing_message' });
+    const msg = await gamesService.postGameChat(req.params.gameId, req.user.sub, message);
+    res.status(201).json(msg);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 const getGames = async (req, res) => {
   try {
     const { date, status } = req.query;
@@ -50,4 +61,4 @@ const getGameChat = async (req, res) => {
   }
 };
 
-module.exports = { getGames, getGameById, getGameLive, getGameRelay, getGameChat };
+module.exports = { getGames, getGameById, getGameLive, getGameRelay, getGameChat, postGameChat };
