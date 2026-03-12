@@ -1,5 +1,4 @@
 const { prisma } = require('../lib/prisma.js');
-const { getLiveCache, setLiveCache } = require('../cache/redis.js');
 
 // GET /api/games?date=YYYY-MM-DD&status=0|1|2
 const getGames = async ({ date, status } = {}) => {
@@ -33,10 +32,6 @@ const getGameById = async (gameId) => {
 
 // GET /api/games/:gameId/live
 const getGameLive = async (gameId) => {
-  // Redis 캐시 먼저 조회 (팀원 B 구현 후 활성화)
-  const cached = await getLiveCache(gameId);
-  if (cached) return cached;
-
   const data = await prisma.game.findUnique({
     where: { id: gameId },
     select: {
@@ -60,7 +55,6 @@ const getGameLive = async (gameId) => {
     },
   });
 
-  if (data) await setLiveCache(gameId, data);
   return data;
 };
 

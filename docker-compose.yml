@@ -19,6 +19,18 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: fullcount-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   api:
     build:
       context: .
@@ -29,8 +41,14 @@ services:
     environment:
       PORT: 3000
       DATABASE_URL: postgresql://user:password@postgres:5432/fullcount
+      JWT_ACCESS_SECRET: fullcount_access_secret_dev
+      JWT_REFRESH_SECRET: fullcount_refresh_secret_dev
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
