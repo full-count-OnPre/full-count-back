@@ -85,4 +85,12 @@ const getGameChat = async (gameId, { cursor, limit = 50 } = {}) => {
   });
 };
 
-module.exports = { getGames, getGameById, getGameLive, getGameRelay, getGameChat };
+// POST /api/games/:gameId/chat
+const postGameChat = async (gameId, userId, message) => {
+  return prisma.message.create({
+    data: { gameId, userId, message },
+    include: { user: { select: { id: true, nickname: true } } },
+  });
+};
+
+module.exports = { getGames, getGameById, getGameLive, getGameRelay, getGameChat, postGameChat };
