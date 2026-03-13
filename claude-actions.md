@@ -619,14 +619,49 @@ npx tsx src/collector/index.js --from 2025-10-01 --to 2025-10-29
 
 ---
 
-## 앞으로 할 것
+## 3/12/12:35 — 전체 통합 테스트 완료
 
-| 순서 | 작업                                         | 파일                           | 비고                             |
-| ---- | -------------------------------------------- | ------------------------------ | -------------------------------- |
-| 1    | `.env.example` 업데이트                      | `.env.example`                 | JWT, Redis 환경변수 반영         |
-| 2    | JWT 인증 미들웨어 작성                       | `src/auth/middleware.js`       | `requireAuth` — Bearer 토큰 검증 |
-| 3    | `POST /api/games/:gameId/chat` 추가          | `src/routes/games.js` 등       | JWT 미들웨어 적용, 메시지 저장   |
-| 4    | Live 엔드포인트 Redis 캐싱 연동              | `src/services/gamesService.js` | `src/redis.js` 직접 사용         |
-| 5    | `docker-compose up --build` 전체 통합 테스트 | —                              | postgres + redis + api 동시 기동 |
-| 6    | Docker Hub push                              | —                              | K8s 배포 전 이미지 업로드        |
-| 7    | K8s Deployment YAML 작성                     | `k8s/`                         | VM2 api, VM3 redis, VM4 postgres |
+### 컨테이너 상태
+
+```
+✔ fullcount-db     Healthy  — PostgreSQL 15
+✔ fullcount-redis  Healthy  — Redis 7-alpine
+✔ fullcount-api    Started  — Express API 포트 3000
+```
+
+### JWT + Redis 동작 확인
+
+- `POST /api/auth/register` → `accessToken` + `refreshToken` 정상 반환 ✅
+- `refreshToken`이 Redis에 `refresh:{jti}` 키로 저장됨 ✅
+- Redis 없이는 로그인/회원가입 불가 → K8s에서 Redis Pod 필수
+
+---
+
+## 3/12/12:44 — 백엔드 완료 현황
+
+### 완료된 전체 작업
+
+| 단계 | 작업                              | 상태 |
+| ---- | --------------------------------- | ---- |
+| 1    | DB 세팅 (Prisma migrate + generate) | ✅  |
+| 2    | 더미데이터 삽입 (seed)            | ✅   |
+| 3    | MLB API Collector + REST API 5개  | ✅   |
+| 4    | Dockerfile / docker-compose 컨테이너화 | ✅ |
+| 5    | MLB 실데이터 수집 (2025 포스트시즌) | ✅  |
+| 6    | 팀원 브랜치 통합 (스키마 충돌 해결) | ✅  |
+| 7    | JWT 인증 (register / login / refresh / logout) | ✅ |
+| 8    | Redis 캐싱 (GET 응답 + refresh token 저장) | ✅ |
+| 9    | docker-compose 전체 통합 테스트   | ✅   |
+
+### 남은 백엔드 작업
+
+없음 — 백엔드 전체 완료 ✅
+
+### K8s 플랫폼 작업 (3/16~)
+
+| 순서 | 작업                            | 파일    | 비고                                       |
+| ---- | ------------------------------- | ------- | ------------------------------------------ |
+| 1    | Docker Hub push                 | —       | K8s 배포 전 이미지 업로드                  |
+| 2    | K8s Deployment YAML 작성        | `k8s/`  | VM2 api, VM3 redis/collector, VM4 postgres |
+| 3    | K8s Service / Ingress YAML 작성 | `k8s/`  | NGINX Ingress, SSL                         |
+| 4    | ArgoCD CI/CD 파이프라인 구성    | —       | GitHub → ArgoCD → K8s 자동 배포            |
